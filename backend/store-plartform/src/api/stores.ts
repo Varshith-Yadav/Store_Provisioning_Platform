@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { createStore, listStores } from "../db/storeRepo"
 import { Store } from "../types/store";
+import { createNamespace } from "../k8s/namespace";
+
 
 export const storesRouter = Router();
 
@@ -29,9 +31,16 @@ storesRouter.post('/', async (req, res)=>{
 
     createStore(store);
 
+    await createNamespace(namespace, {
+        "platform/store-id": id,
+        "platform/engine": engine
+    });
+
     res.status(201).json(store);
 });
 
 storesRouter.get('/', (_, res)=>{
     res.json(listStores());
 })
+
+
