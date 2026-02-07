@@ -1,0 +1,33 @@
+# Helm
+charts/*/charts/
+charts/*/Chart.lock
+*.tgz
+
+# Dependencies
+/helm_repos/
+charts/*/.helmignore
+
+# Build artifacts
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Helm plugins
+plugins/
+
+# Local overrides
+values-local.yaml
+values-*.local.yaml
+
+
+node_modules/
