@@ -12,6 +12,7 @@ db.exec(`
     admin_url TEXT,
     error_reason TEXT,
     created_at TEXT,
-    updated_at TEXT
+    updated_at TEXT,
+    ready_at TIMESTAMP 
   )
 `);
