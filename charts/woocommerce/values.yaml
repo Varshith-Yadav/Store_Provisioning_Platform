@@ -1,0 +1,22 @@
+﻿wordpress:
+  wordpressUsername: admin
+  wordpressEmail: admin@example.com
+  wordpressBlogName: "Auto Store"
+  existingSecret: wordpress-credentials
+  wordpressPlugins:
+    - woocommerce
+  allowEmptyPassword: false
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+  persistence:
+    enabled: true
+    size: 1Gi
+mariadb:
+  enabled: true
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi

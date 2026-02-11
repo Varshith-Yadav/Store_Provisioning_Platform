@@ -1,0 +1,7 @@
+﻿wordpress:
+  service:
+    type: LoadBalancer
+  ingress:
+    hostname: "{{ .Release.Name }}.localhost"
+    annotations:
+      kubernetes.io/ingress.class: nginx
