@@ -1,0 +1,5 @@
+﻿apiVersion: v2
+name: medusa-store
+description: Medusa store (API + minimal storefront)
+type: application
+version: 0.1.0

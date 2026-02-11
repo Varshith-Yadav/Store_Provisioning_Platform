@@ -1,0 +1,31 @@
+﻿host: "store.localhost"
+protocol: "http"
+
+publishableApiKey: "pk_0000000000000000000000000000000000000000000000000000000000000000"
+
+medusa:
+  image:
+    repository: "hassansalem/docker-medusa-testing"
+    tag: "v2.7.0-3"
+    pullPolicy: IfNotPresent
+  port: 9000
+  extraEnv: []
+  resources: {}
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+
+storefront:
+  image:
+    repository: "nginx"
+    tag: "1.27-alpine"
+    pullPolicy: IfNotPresent
+  port: 80
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations: {}

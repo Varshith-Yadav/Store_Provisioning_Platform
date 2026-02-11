@@ -1,0 +1,8 @@
+﻿ingress:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+medusa:
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: "standard"

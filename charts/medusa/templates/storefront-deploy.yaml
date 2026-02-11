@@ -1,0 +1,64 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "medusa.fullname" . }}-storefront
+  labels:
+    {{- include "medusa.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storefront
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: storefront
+  template:
+    metadata:
+      labels:
+        {{- include "medusa.labels" . | nindent 8 }}
+        app.kubernetes.io/component: storefront
+    spec:
+      containers:
+        - name: storefront
+          image: "{{ .Values.storefront.image.repository }}:{{ .Values.storefront.image.tag }}"
+          imagePullPolicy: {{ .Values.storefront.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.storefront.port }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.storefront.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.storefront.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: storefront-files
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: storefront-files
+          configMap:
+            name: {{ include "medusa.fullname" . }}-storefront
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "medusa.fullname" . }}-storefront
+  labels:
+    {{- include "medusa.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storefront
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: storefront
+  ports:
+    - port: {{ .Values.storefront.port }}
+      targetPort: {{ .Values.storefront.port }}
+      name: http

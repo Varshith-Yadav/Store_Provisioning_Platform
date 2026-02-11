@@ -1,0 +1,255 @@
+﻿apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "medusa.fullname" . }}-storefront
+  labels:
+    {{- include "medusa.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storefront
+
+data:
+  index.html: |-
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Medusa Storefront</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 24px; color: #111; }
+          .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+          .card { border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; }
+          .card h3 { margin: 0 0 8px; font-size: 1rem; }
+          .muted { color: #666; font-size: 0.9rem; }
+          button { background: #111; color: #fff; border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+          button:disabled { opacity: 0.5; cursor: not-allowed; }
+          .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+          .panel { margin-top: 24px; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; }
+          input { padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; }
+          .status { margin-top: 12px; color: #444; }
+          .error { color: #b40000; }
+        </style>
+      </head>
+      <body>
+        <h1>Medusa Storefront</h1>
+        <p class="muted">Add a product to cart and complete a test checkout.</p>
+
+        <div id="products" class="grid"></div>
+
+        <div class="panel">
+          <div class="row">
+            <strong>Cart</strong>
+            <span id="cart-info" class="muted">No items</span>
+            <button id="checkout-btn" disabled>Checkout (test)</button>
+          </div>
+          <div class="row" style="margin-top: 12px;">
+            <input id="email" type="email" placeholder="customer@example.com" value="customer@example.com" />
+            <input id="name" type="text" placeholder="Full name" value="Test Customer" />
+          </div>
+          <div class="status" id="status"></div>
+        </div>
+
+        <script src="/app.js"></script>
+      </body>
+    </html>
+  app.js: |-
+    (function () {
+      const publishableKey = "{{ .Values.publishableApiKey }}";
+      const statusEl = document.getElementById("status");
+      const productsEl = document.getElementById("products");
+      const cartInfoEl = document.getElementById("cart-info");
+      const checkoutBtn = document.getElementById("checkout-btn");
+      const emailInput = document.getElementById("email");
+      const nameInput = document.getElementById("name");
+
+      const state = {
+        regionId: null,
+        cartId: null,
+        cart: null
+      };
+
+      function setStatus(message, isError) {
+        statusEl.textContent = message;
+        statusEl.className = isError ? "status error" : "status";
+      }
+
+      function buildHeaders(isJson) {
+        const headers = {};
+        if (publishableKey && publishableKey !== "") {
+          headers["x-publishable-api-key"] = publishableKey;
+        }
+        if (isJson) {
+          headers["Content-Type"] = "application/json";
+        }
+        return headers;
+      }
+
+      async function api(path, options) {
+        const response = await fetch(path, options);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const detail = data?.message || data?.error || response.statusText;
+          throw new Error(detail || "Request failed");
+        }
+        return data;
+      }
+
+      function renderProducts(products) {
+        productsEl.innerHTML = "";
+        if (!products.length) {
+          productsEl.innerHTML = "<div class=\"muted\">No products found. Create one in Medusa admin.</div>";
+          return;
+        }
+        products.forEach(product => {
+          const variant = product.variants && product.variants[0];
+          const card = document.createElement("div");
+          card.className = "card";
+          card.innerHTML = `
+            <h3>${product.title}</h3>
+            <div class="muted">${variant ? "Variant: " + variant.title : "No variants"}</div>
+            <div class="row" style="margin-top: 12px;">
+              <button ${variant ? "" : "disabled"} data-variant="${variant ? variant.id : ""}">Add to cart</button>
+            </div>
+          `;
+          const button = card.querySelector("button");
+          button.addEventListener("click", () => addToCart(variant.id));
+          productsEl.appendChild(card);
+        });
+      }
+
+      async function loadRegions() {
+        const data = await api("/store/regions", { headers: buildHeaders(false) });
+        const regions = data.regions || [];
+        if (!regions.length) {
+          throw new Error("No regions available.");
+        }
+        state.regionId = regions[0].id;
+      }
+
+      async function loadProducts() {
+        const data = await api("/store/products", { headers: buildHeaders(false) });
+        return data.products || [];
+      }
+
+      async function ensureCart() {
+        if (state.cartId) return state.cartId;
+        const data = await api("/store/carts", {
+          method: "POST",
+          headers: buildHeaders(true),
+          body: JSON.stringify({ region_id: state.regionId })
+        });
+        state.cartId = data.cart.id;
+        state.cart = data.cart;
+        updateCartInfo();
+        return state.cartId;
+      }
+
+      async function refreshCart() {
+        if (!state.cartId) return;
+        const data = await api(`/store/carts/${state.cartId}`, { headers: buildHeaders(false) });
+        state.cart = data.cart;
+        updateCartInfo();
+      }
+
+      function updateCartInfo() {
+        if (!state.cart) {
+          cartInfoEl.textContent = "No items";
+          checkoutBtn.disabled = true;
+          return;
+        }
+        const itemCount = state.cart.items ? state.cart.items.length : 0;
+        cartInfoEl.textContent = `${itemCount} item(s) in cart`;
+        checkoutBtn.disabled = itemCount === 0;
+      }
+
+      async function addToCart(variantId) {
+        try {
+          setStatus("Adding to cart...");
+          const cartId = await ensureCart();
+          await api(`/store/carts/${cartId}/line-items`, {
+            method: "POST",
+            headers: buildHeaders(true),
+            body: JSON.stringify({ variant_id: variantId, quantity: 1 })
+          });
+          await refreshCart();
+          setStatus("Added to cart.");
+        } catch (err) {
+          setStatus(err.message, true);
+        }
+      }
+
+      async function checkout() {
+        try {
+          setStatus("Starting checkout...");
+          const cartId = await ensureCart();
+          const fullName = nameInput.value || "Test Customer";
+          const email = emailInput.value || "customer@example.com";
+
+          await api(`/store/carts/${cartId}`, {
+            method: "POST",
+            headers: buildHeaders(true),
+            body: JSON.stringify({
+              email,
+              shipping_address: {
+                first_name: fullName,
+                last_name: "",
+                address_1: "123 Main St",
+                city: "San Francisco",
+                country_code: "us",
+                postal_code: "94107",
+                phone: "555-555-5555"
+              }
+            })
+          });
+
+          const shipping = await api(`/store/shipping-options?cart_id=${cartId}`, {
+            headers: buildHeaders(false)
+          });
+          const options = shipping.shipping_options || [];
+          if (options.length) {
+            await api(`/store/carts/${cartId}/shipping-methods`, {
+              method: "POST",
+              headers: buildHeaders(true),
+              body: JSON.stringify({ option_id: options[0].id })
+            });
+          }
+
+          const sessions = await api(`/store/carts/${cartId}/payment-sessions`, {
+            method: "POST",
+            headers: buildHeaders(true)
+          });
+          const paymentSessions = sessions.payment_sessions || [];
+          if (paymentSessions.length) {
+            const manual = paymentSessions.find(session => session.provider_id === "manual") || paymentSessions[0];
+            await api(`/store/carts/${cartId}/payment-session`, {
+              method: "POST",
+              headers: buildHeaders(true),
+              body: JSON.stringify({ provider_id: manual.provider_id })
+            });
+          }
+
+          const completed = await api(`/store/carts/${cartId}/complete`, {
+            method: "POST",
+            headers: buildHeaders(true)
+          });
+          const orderId = completed?.order?.id || "(unknown)";
+          setStatus(`Order placed successfully. Order ID: ${orderId}`);
+        } catch (err) {
+          setStatus(err.message, true);
+        }
+      }
+
+      checkoutBtn.addEventListener("click", checkout);
+
+      async function init() {
+        try {
+          await loadRegions();
+          const products = await loadProducts();
+          renderProducts(products);
+          setStatus("Ready.");
+        } catch (err) {
+          setStatus(err.message, true);
+        }
+      }
+
+      init();
+    })();

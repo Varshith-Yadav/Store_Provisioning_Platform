@@ -1,0 +1,80 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "medusa.fullname" . }}-api
+  labels:
+    {{- include "medusa.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "medusa.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      containers:
+        - name: medusa
+          image: "{{ .Values.medusa.image.repository }}:{{ .Values.medusa.image.tag }}"
+          imagePullPolicy: {{ .Values.medusa.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.medusa.port }}
+          livenessProbe:
+            httpGet:
+              path: /store/regions
+              port: {{ .Values.medusa.port }}
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /store/regions
+              port: {{ .Values.medusa.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          env:
+            - name: PORT
+              value: "{{ .Values.medusa.port }}"
+            - name: STORE_CORS
+              value: "{{ .Values.protocol }}://{{ .Values.host }}"
+            - name: ADMIN_CORS
+              value: "{{ .Values.protocol }}://{{ .Values.host }}"
+{{ with .Values.medusa.extraEnv }}
+{{ toYaml . | nindent 12 }}
+{{- end }}
+          resources:
+{{ toYaml .Values.medusa.resources | nindent 12 }}
+{{- if .Values.medusa.persistence.enabled }}
+          volumeMounts:
+            - name: medusa-data
+              mountPath: /var/lib/postgresql/data
+{{- end }}
+{{- if .Values.medusa.persistence.enabled }}
+      volumes:
+        - name: medusa-data
+          persistentVolumeClaim:
+            claimName: {{ include "medusa.fullname" . }}-db
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "medusa.fullname" . }}-api
+  labels:
+    {{- include "medusa.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: api
+  ports:
+    - port: {{ .Values.medusa.port }}
+      targetPort: {{ .Values.medusa.port }}
+      name: http

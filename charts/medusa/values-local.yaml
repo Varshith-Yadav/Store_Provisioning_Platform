@@ -1,0 +1,6 @@
+﻿host: "{{ .Release.Name }}.localhost"
+protocol: "http"
+
+ingress:
+  annotations:
+    kubernetes.io/ingress.class: nginx
