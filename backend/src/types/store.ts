@@ -1,12 +1,14 @@
-export type StoreStatus = 
+export type StoreStatus =
     | "provisioning"
     | "ready"
     | "failed"
     | "deleting"
+    | "deleted"
+    | "delete_failed"
 
 
 
-export type StoreEngine = "woocommerece" | "medusa";
+export type StoreEngine = "woocommerce" | "medusa";
 
 export interface Store {
     id: string;

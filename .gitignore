@@ -25,9 +25,10 @@ Thumbs.db
 # Helm plugins
 plugins/
 
-# Local overrides
-values-local.yaml
-values-*.local.yaml
-
-
 node_modules/
+
+
+
+.env
+.env.*
+!.env.example
