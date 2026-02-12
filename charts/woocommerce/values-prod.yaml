@@ -1,14 +1,14 @@
 ﻿wordpress:
   ingress:
-    annotations:
-      kubernetes.io/ingress.class: nginx
+    ingressClassName: traefik
   persistence:
     enabled: true
     size: 5Gi
-    storageClass: "standard"
+    storageClass: "local-path"
+
 mariadb:
   primary:
     persistence:
       enabled: true
       size: 5Gi
-      storageClass: "standard"
+      storageClass: "local-path"
