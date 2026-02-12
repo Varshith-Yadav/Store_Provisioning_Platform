@@ -14,7 +14,6 @@ export function installMedusa(
     "..",
     "..",
     "..",
-    "..",
     "charts",
     "medusa"
   );
